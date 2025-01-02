@@ -104,6 +104,8 @@ def generate_magic_link():
         db.session.rollback()
         app.logger.error(f"Error generating magic link: {str(e)}")
         return jsonify({"message": "An error occurred"}), 500.
+
+
 @app.route('/verify-magic-link/<token>', methods=['POST'])
 def verify_magic_link(token):
     try:
