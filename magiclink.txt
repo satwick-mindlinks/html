@@ -1,0 +1,38 @@
+Multi Agent Requirements:
+As part of the user management process in tax document collection portal, there is a need to
+provide options for the user to either request for 1. Forgot Password OR 2. Generate a magic link
+from the Login page.
+
+1.Forgot Password:
+Related to Forgot password, it is standard process of user enters the username, after
+validating for the correct account, forgot password link should be sent to the register email
+On click of forgot password, user is allowed to set the new password as per the password
+security. After the forgot password flow is completed, user is taken to the login page where
+user can login with the new password
+
+2.Magic link Generation
+To facilitate the quick login to the registered users who usually don’t remember password,
+we need to provide Magic link option. On click of the magic link, user are asked for their
+registered username, after user submits the username, it is validated and magic link is sent
+to the user registered email for the valid users only.
+On click of the magic link, system validated the link and auto login if the link is valid and not
+expired. Note that, magic link will have time duration within which user should login and can
+be used only once.
+
+Expectation:
+1. Code Generator to generate the UI, business logic, database interactions which means end
+to
+End implementation of the above 2 scenarios
+2. It should follow tax document collection technology stack
+3. Demo should be planned to showcase the complete end to end working code which can be
+adopted in the tax portal project
+
+Inputs to Code Generator:
+1. Requirement document
+2. Database Schema – Get it from tax portal team
+Output from code generator:
+1. UI components which should be tested from application
+2. Python code with business logic
+3. Python code with database interactions
+
+Any improvements can be adopted for better output delivery
