@@ -28,7 +28,7 @@ def generate_magic_link():
         magic_link_token = str(uuid.uuid4())
 
         # Use expiry time from config
-        expiry_minutes = config['SETTINGS']['MAGIC_LINK']['EXPIRY_MINUTES']
+        expiry_minutes = 60
         expiry_time = datetime.now(timezone.utc) + timedelta(minutes=expiry_minutes)
 
         # Update user record with magic link info
