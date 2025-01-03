@@ -1,3 +1,77 @@
+
+@app.route('/verify-magic-link/<token>', methods=['POST'])
+def verify_magic_link(token):
+    try:
+        # Find user by magic link token
+        user = User.query.filter_by(magic_link=token).first()
+        if not user:
+            return jsonify({'message': 'Invalid magic link'}), 401
+
+        current_time = datetime.now(timezone.utc)
+
+        # Check link status and expiration
+        if user.magic_link_status != 'active':
+            return jsonify({'message': 'Magic link is no longer active'}), 401
+
+        if current_time > user.magic_link_expiry_date:
+            user.magic_link_status = 'expired'
+            db.session.commit()
+            return jsonify({'message': 'Magic link has expired'}), 401
+
+        # Get customer record if user is a customer
+        customer = None
+        if user.user_role == 'customer':
+            customer = Customer.query.filter_by(user_id=user.user_id).first()
+            if customer:
+                customer_taxfinancial = CustomerTaxFinancial.query.filter_by(customer_id=customer.id).first()
+                if customer_taxfinancial and customer_taxfinancial.filing_type == 'Married filing jointly':
+                    customer_jointmembers = CustomerJointMember.query.filter_by(customer_id=customer.id).first()
+                    if customer_jointmembers:
+                        spouse_name = customer_jointmembers.member_name
+                    else:
+                        spouse_name = None
+                else:
+                    spouse_name = None
+
+        # Mark link as used and update last login
+        user.magic_link_status = 'used'
+        user.last_login = current_time
+
+        # Generate auth token - exactly as in login
+        auth_token = jwt.encode({
+            'user_id': user.user_id,
+            'user_role': user.user_role,
+            'exp': datetime.now(timezone.utc) + timedelta(hours=24)
+        }, app.config['SECRET_KEY'], algorithm="HS256")
+
+        db.session.commit()
+
+        # Match login response structure exactly
+        response_data = {
+            'token': auth_token,
+            'user_id': user.user_id,
+            'username': user.username,
+            'email': user.email,
+            'user_role': user.user_role
+        }
+
+        # Add customer data if customer - matching login structure
+        if user.user_role == 'customer' and customer and customer_taxfinancial:
+            response_data.update({
+                'customer': {
+                    'customer_id': customer.id,
+                    'filing_type': customer_taxfinancial.filing_type,
+                    'spouse_name': spouse_name
+                }
+            })
+
+        return jsonify(response_data), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error verifying magic link: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/generate-magic-link', methods=['POST'])
 def generate_magic_link():
     try:
@@ -104,76 +178,3 @@ def generate_magic_link():
         db.session.rollback()
         app.logger.error(f"Error generating magic link: {str(e)}")
         return jsonify({"message": "An error occurred"}), 500
-
-@app.route('/verify-magic-link/<token>', methods=['POST'])
-def verify_magic_link(token):
-    try:
-        # Find user by magic link token
-        user = User.query.filter_by(magic_link=token).first()
-        if not user:
-            return jsonify({'message': 'Invalid magic link'}), 401
-
-        current_time = datetime.now(timezone.utc)
-
-        # Check link status and expiration
-        if user.magic_link_status != 'active':
-            return jsonify({'message': 'Magic link is no longer active'}), 401
-
-        if current_time > user.magic_link_expiry_date:
-            user.magic_link_status = 'expired'
-            db.session.commit()
-            return jsonify({'message': 'Magic link has expired'}), 401
-
-        # Get customer record if user is a customer
-        customer = None
-        if user.user_role == 'customer':
-            customer = Customer.query.filter_by(user_id=user.user_id).first()
-            if customer:
-                customer_taxfinancial = CustomerTaxFinancial.query.filter_by(customer_id=customer.id).first()
-                if customer_taxfinancial and customer_taxfinancial.filing_type == 'Married filing jointly':
-                    customer_jointmembers = CustomerJointMember.query.filter_by(customer_id=customer.id).first()
-                    if customer_jointmembers:
-                        spouse_name = customer_jointmembers.member_name
-                    else:
-                        spouse_name = None
-                else:
-                    spouse_name = None
-
-        # Mark link as used and update last login
-        user.magic_link_status = 'used'
-        user.last_login = current_time
-
-        # Generate auth token - exactly as in login
-        auth_token = jwt.encode({
-            'user_id': user.user_id,
-            'user_role': user.user_role,
-            'exp': datetime.now(timezone.utc) + timedelta(hours=24)
-        }, app.config['SECRET_KEY'], algorithm="HS256")
-
-        db.session.commit()
-
-        # Match login response structure exactly
-        response_data = {
-            'token': auth_token,
-            'user_id': user.user_id,
-            'username': user.username,
-            'email': user.email,
-            'user_role': user.user_role
-        }
-
-        # Add customer data if customer - matching login structure
-        if user.user_role == 'customer' and customer and customer_taxfinancial:
-            response_data.update({
-                'customer': {
-                    'customer_id': customer.id,
-                    'filing_type': customer_taxfinancial.filing_type,
-                    'spouse_name': spouse_name
-                }
-            })
-
-        return jsonify(response_data), 200
-
-    except Exception as e:
-        db.session.rollback()
-        app.logger.error(f"Error verifying magic link: {str(e)}")
-        return jsonify({'error': str(e)}), 500
